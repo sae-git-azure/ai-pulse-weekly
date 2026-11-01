@@ -57,6 +57,34 @@ def fetch_feed(src):
     return items
 
 
+def meta(page, prop):
+    m = (re.search(r'<meta[^>]+(?:property|name)="%s"[^>]+content="([^"]*)"' % prop, page)
+         or re.search(r'<meta[^>]+content="([^"]*)"[^>]+(?:property|name)="%s"' % prop, page))
+    return strip_html(m.group(1)) if m else ""
+
+
+def fetch_sitemap(src, cutoff):
+    """Sources without RSS: read sitemap lastmod, then title/description from each recent page."""
+    def get(u):
+        with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30) as r:
+            return r.read()
+    root = ET.fromstring(get(src["url"]))
+    items = []
+    for u in root.iter():
+        if local(u.tag) != "url":
+            continue
+        loc = next((c.text.strip() for c in u if local(c.tag) == "loc"), "")
+        d = parse_date(next((c.text for c in u if local(c.tag) == "lastmod"), None))
+        if src["path_contains"] in loc and d and d >= cutoff:
+            page = get(loc).decode("utf-8", "replace")
+            title = meta(page, "og:title")
+            pub = parse_date(meta(page, "article:published_time")) or d
+            if title and pub >= cutoff:
+                items.append({"title": title, "link": loc, "date": pub, "source": src["name"],
+                              "text": meta(page, "og:description")[:1500]})
+    return items
+
+
 def ask_model(model, prompt):
     key = os.environ.get("ANTHROPIC_API_KEY")
     if not key:
@@ -98,7 +126,12 @@ def main():
         items, notes = [], []
         for src in sec["sources"]:
             try:
-                items += [i for i in fetch_feed(src) if i["date"] >= cutoff]
+                got = (fetch_sitemap(src, cutoff) if src.get("type") == "sitemap"
+                       else [i for i in fetch_feed(src) if i["date"] >= cutoff])
+                kw = [k.lower() for k in src.get("keywords", [])]
+                if kw:
+                    got = [i for i in got if any(k in (i["title"] + " " + i["text"]).lower() for k in kw)]
+                items += got
             except Exception as e:
                 print(f"Source failed {src['name']}: {e}", file=sys.stderr)
                 notes.append(src["name"])

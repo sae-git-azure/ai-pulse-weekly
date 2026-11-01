@@ -3,17 +3,73 @@
   "max_items_per_section": 10,
   "model": "claude-haiku-5-5",
   "sections": [
-    {"id": "claude", "name_es": "Claude (Anthropic)", "name_en": "Claude (Anthropic)",
-     "sources": [{"name": "Anthropic News", "url": "https://www.anthropic.com/rss.xml"}]},
-    {"id": "openai", "name_es": "OpenAI", "name_en": "OpenAI",
-     "sources": [{"name": "OpenAI News", "url": "https://openai.com/news/rss.xml"}]},
-    {"id": "gemini", "name_es": "Gemini (Google)", "name_en": "Gemini (Google)",
-     "sources": [{"name": "Google Gemini Blog", "url": "https://blog.google/products/gemini/rss/"},
-                 {"name": "Google AI Blog", "url": "https://blog.google/technology/ai/rss/"}]},
-    {"id": "copilot", "name_es": "Microsoft Copilot", "name_en": "Microsoft Copilot",
-     "sources": [{"name": "Microsoft Copilot Blog", "url": "https://www.microsoft.com/en-us/microsoft-copilot/blog/feed/"}]},
-    {"id": "other", "name_es": "Otras noticias importantes", "name_en": "Other important news",
-     "sources": [{"name": "Meta AI Blog", "url": "https://ai.meta.com/blog/rss/"},
-                 {"name": "Mistral AI News", "url": "https://mistral.ai/rss.xml"}]}
+    {
+      "id": "claude",
+      "name_es": "Claude (Anthropic)",
+      "name_en": "Claude (Anthropic)",
+      "sources": [
+        {
+          "name": "Anthropic News",
+          "type": "sitemap",
+          "url": "https://www.anthropic.com/sitemap.xml",
+          "path_contains": "anthropic.com/news/"
+        }
+      ]
+    },
+    {
+      "id": "openai",
+      "name_es": "OpenAI",
+      "name_en": "OpenAI",
+      "sources": [
+        {
+          "name": "OpenAI News",
+          "url": "https://openai.com/news/rss.xml"
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "name_es": "Gemini (Google)",
+      "name_en": "Gemini (Google)",
+      "sources": [
+        {
+          "name": "Google Gemini Blog",
+          "url": "https://blog.google/products/gemini/rss/"
+        },
+        {
+          "name": "Google AI Blog",
+          "url": "https://blog.google/technology/ai/rss/"
+        }
+      ]
+    },
+    {
+      "id": "copilot",
+      "name_es": "Microsoft Copilot",
+      "name_en": "Microsoft Copilot",
+      "sources": [
+        {
+          "name": "Microsoft Official Blog (Copilot)",
+          "url": "https://blogs.microsoft.com/feed/",
+          "keywords": [
+            "copilot"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "other",
+      "name_es": "Otras noticias importantes",
+      "name_en": "Other important news",
+      "sources": [
+        {
+          "name": "Meta AI Blog",
+          "url": "https://ai.meta.com/blog/rss/"
+        },
+        {
+          "name": "Mistral AI News",
+          "url": "https://mistral.ai/rss.xml"
+        }
+      ]
+    }
   ]
 }
