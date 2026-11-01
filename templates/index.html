@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Pulse Weekly</title>
+<style>
+:root{--bg:#000;--card:#0e130c;--line:#1f2a1a;--text:#e4e8e1;--muted:#8d9988;--green:#8fd14f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text",Helvetica,Arial,sans-serif;padding:env(safe-area-inset-top) 16px 48px}
+.wrap{max-width:860px;margin:0 auto}
+header{padding:28px 0 16px;border-bottom:1px solid var(--line)}
+h1{margin:0;color:var(--green);font-size:1.9rem;letter-spacing:.3px}
+.hdr{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--muted);font-size:.85rem;margin-top:8px}
+.toggle{margin-top:14px}
+.toggle button{background:none;border:1px solid var(--green);color:var(--green);padding:6px 14px;border-radius:999px;font:inherit;font-size:.85rem;cursor:pointer}
+.toggle button.on{background:var(--green);color:#000}
+h2{color:var(--green);font-size:1.25rem;margin:34px 0 12px;border-left:3px solid var(--green);padding-left:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 12px}
+.card h3{margin:0 0 6px;font-size:1.02rem}
+.card p{margin:0 0 8px;color:#c9cfc6}
+.meta{font-size:.8rem;color:var(--muted)}
+a{color:var(--green)}
+.warn,.empty{color:var(--muted);font-size:.9rem}
+body.lang-es .en{display:none}body.lang-en .es{display:none}
+footer{margin-top:40px;color:var(--muted);font-size:.78rem;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body class="lang-en">
+<div class="wrap">
+<header>
+<h1>AI Pulse Weekly</h1>
+<div class="hdr"><span>{{KW}}</span><span><span class="es">Edición</span><span class="en">Edition</span> #{{EDITION}}</span><span>{{STAMP}}</span></div>
+<div class="toggle"><button data-l="en" class="on">EN</button> <button data-l="es">ES</button></div>
+</header>
+<main>
+{{SECTIONS}}
+</main>
+<footer><span class="es">Solo fuentes oficiales · últimos 7 días · resúmenes generados automáticamente.</span><span class="en">Official sources only · last 7 days · automatically generated summaries.</span></footer>
+</div>
+<script>
+(function(){var b=document.body,bs=document.querySelectorAll('.toggle button');
+function set(l){b.className='lang-'+l;document.documentElement.lang=l;bs.forEach(function(x){x.classList.toggle('on',x.dataset.l===l)});try{localStorage.setItem('lang',l)}catch(e){}}
+bs.forEach(function(x){x.onclick=function(){set(x.dataset.l)}});
+var s;try{s=localStorage.getItem('lang')}catch(e){}
+set(s||((navigator.language||'').slice(0,2)==='es'?'es':'en'));})();
+</script>
+</body>
+</html>
