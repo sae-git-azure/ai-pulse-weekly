@@ -128,9 +128,9 @@ def main():
             try:
                 got = (fetch_sitemap(src, cutoff) if src.get("type") == "sitemap"
                        else [i for i in fetch_feed(src) if i["date"] >= cutoff])
-                kw = [k.lower() for k in src.get("keywords", [])]
+                kw = [re.compile(r"\b%s\b" % re.escape(k), re.I) for k in src.get("keywords", [])]
                 if kw:
-                    got = [i for i in got if any(k in (i["title"] + " " + i["text"]).lower() for k in kw)]
+                    got = [i for i in got if any(k.search(i["title"] + " " + i["text"]) for k in kw)]
                 items += got
             except Exception as e:
                 print(f"Source failed {src['name']}: {e}", file=sys.stderr)
