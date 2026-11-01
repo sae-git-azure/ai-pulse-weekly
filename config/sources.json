@@ -62,8 +62,13 @@
       "name_en": "Other important news",
       "sources": [
         {
-          "name": "Meta AI Blog",
-          "url": "https://ai.meta.com/blog/rss/"
+          "name": "Meta Newsroom (AI)",
+          "url": "https://about.fb.com/news/feed/",
+          "keywords": [
+            "AI",
+            "Llama",
+            "artificial intelligence"
+          ]
         },
         {
           "name": "Mistral AI News",
