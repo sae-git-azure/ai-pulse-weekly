@@ -76,5 +76,7 @@
         }
       ]
     }
-  ]
+  ],
+  "fallback_items": 3,
+  "fallback_days": 60
 }
