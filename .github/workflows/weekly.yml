@@ -2,10 +2,13 @@ name: AI Pulse Weekly
 
 on:
   schedule:
-    # 09:00 Germany: 07:00 UTC in summer (CEST), 08:00 UTC in winter (CET).
-    # Both fire; scripts/build.py only proceeds when Berlin time is 09:xx.
-    - cron: "0 7 * * 5"
-    - cron: "0 8 * * 5"
+    # Target: Friday 09:00 Europe/Berlin. Cron is UTC, so one entry per timezone offset:
+    # 07:xx UTC = 09:xx CEST (summer), 08:xx UTC = 09:xx CET (winter).
+    # The third entry is a safety net for heavily delayed or dropped runs.
+    # scripts/guard.py builds only from Friday 09:00 Berlin on, and only once per ISO week.
+    - cron: "17 7 * * 5"
+    - cron: "43 8 * * 5"
+    - cron: "23 12 * * 5"
   workflow_dispatch:
 
 permissions:
@@ -13,8 +16,9 @@ permissions:
   pages: write
   id-token: write
 
+# Never run two builds at the same time; a queued run waits for the first to finish.
 concurrency:
-  group: pages
+  group: ai-pulse-weekly
   cancel-in-progress: false
 
 jobs:
@@ -22,22 +26,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Always the latest main, so a run that waited in the queue sees the edition the previous run pushed.
+          ref: ${{ github.event.repository.default_branch }}
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Guard (Friday 09:00 Berlin or later, once per week)
+        id: guard
+        run: python scripts/guard.py
+
       - name: Build edition
+        if: steps.guard.outputs.run == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python scripts/build.py
+
+      - name: Verify a new edition was written
+        if: steps.guard.outputs.run == 'true'
+        run: |
+          new=$(git ls-files --others --exclude-standard archive | grep -c '\.html$' || true)
+          if [ "$new" -ne 1 ]; then
+            echo "::error::Expected exactly 1 new edition file in archive/, found $new. Nothing will be published."
+            exit 1
+          fi
+          test -s site/index.html || { echo "::error::site/index.html missing or empty"; exit 1; }
+          echo "New edition: $(git ls-files --others --exclude-standard archive | grep '\.html$')"
+
       - name: Commit archive and site
+        if: steps.guard.outputs.run == 'true'
         run: |
           git config user.name "ai-pulse-bot"
           git config user.email "ai-pulse-bot@users.noreply.github.com"
           git add archive site
-          git diff --cached --quiet || (git commit -m "Edition $(date -u +%G-KW%V)" && git push)
+          git commit -m "Edition $(date -u +%G-KW%V)"
+          git push
+
       - uses: actions/configure-pages@v5
+        if: steps.guard.outputs.run == 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.guard.outputs.run == 'true'
         with:
           path: site
       - id: deployment
+        if: steps.guard.outputs.run == 'true'
         uses: actions/deploy-pages@v4

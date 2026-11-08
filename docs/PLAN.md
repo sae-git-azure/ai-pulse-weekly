@@ -10,3 +10,8 @@ edition (+1/week) and KW; one archive file per week; failed source => page still
 1. Repo must be public. 2. Add secret `ANTHROPIC_API_KEY` (never in code/config).
 3. Settings > Pages > Source: "GitHub Actions". 4. Actions > "AI Pulse Weekly" > Run workflow once to test.
 Without the secret the page still builds, using the feed's own text for both languages.
+
+## Schedule behaviour
+Cron entries (UTC) are only triggers; `scripts/guard.py` decides. A run builds when it is Friday 09:00 Europe/Berlin or later
+(delays of hours are fine) and no edition exists yet for the current ISO week. Extra triggers skip with a green notice.
+A green run that built means a new edition was published; a red run means nothing was published.
