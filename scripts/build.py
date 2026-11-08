@@ -69,12 +69,14 @@ def fetch_sitemap(src, cutoff):
         with urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=30) as r:
             return r.read()
     root = ET.fromstring(get(src["url"]))
-    items = []
+    items, raw = [], 0
     for u in root.iter():
         if local(u.tag) != "url":
             continue
         loc = next((c.text.strip() for c in u if local(c.tag) == "loc"), "")
         d = parse_date(next((c.text for c in u if local(c.tag) == "lastmod"), None))
+        if src["path_contains"] in loc:
+            raw += 1
         if src["path_contains"] in loc and d and d >= cutoff:
             page = get(loc).decode("utf-8", "replace")
             title = meta(page, "og:title")
@@ -82,7 +84,7 @@ def fetch_sitemap(src, cutoff):
             if title and pub >= cutoff:
                 items.append({"title": title, "link": loc, "date": pub, "source": src["name"],
                               "text": meta(page, "og:description")[:1500]})
-    return items
+    return items, raw
 
 
 def ask_model(model, prompt):
@@ -112,29 +114,55 @@ def summarize(model, it):
     return fb, fb
 
 
+def write_summary(stats, sections, total):
+    """Per-source counts for the log and the GitHub run summary."""
+    lines = ["## AI Pulse Weekly - sources", "", f"Items published: **{total}**", "",
+             "| Section | Source | Raw | Last 7 days | After filter | Status |", "|---|---|---|---|---|---|"]
+    for st in stats:
+        status = ("❌ " + st["error"]) if st["error"] else ("⚠️ 0 raw items" if st["raw"] == 0 else
+                 ("ℹ️ nothing in window" if st["window"] == 0 else "✅"))
+        lines.append(f"| {st['section']} | {st['source']} | {st['raw']} | {st['window']} | {st['kept']} | {status} |")
+    lines += ["", "| Section | Items shown |", "|---|---|"] + [f"| {s['cfg']['id']} | {len(s['items'])} |" for s in sections]
+    f = os.environ.get("GITHUB_STEP_SUMMARY")
+    if f:
+        with open(f, "a") as fh:
+            fh.write("\n".join(lines) + "\n")
+
+
 def main():
-    force = "--force" in sys.argv
-    now = datetime.now(BERLIN)
-    # Cron fires at both 07:00 and 08:00 UTC; only run at 09:xx Berlin (manual runs always pass).
-    if not force and os.environ.get("GITHUB_EVENT_NAME") == "schedule" and now.hour != 9:
-        print(f"Berlin time is {now:%H:%M}, not 09:xx - skipping."); sys.exit(0)
+    now = datetime.now(BERLIN)  # when to run is decided by scripts/guard.py in the workflow
 
     cfg = json.loads((ROOT / "config/sources.json").read_text())
     cutoff = datetime.now(timezone.utc) - timedelta(days=cfg["window_days"])
-    seen, sections = set(), []
+    seen, sections, stats = set(), [], []
     for sec in cfg["sections"]:
         items, notes = [], []
         for src in sec["sources"]:
+            st = {"section": sec["id"], "source": src["name"], "raw": 0, "window": 0, "kept": 0, "error": ""}
             try:
-                got = (fetch_sitemap(src, cutoff) if src.get("type") == "sitemap"
-                       else [i for i in fetch_feed(src) if i["date"] >= cutoff])
+                if src.get("type") == "sitemap":
+                    got, st["raw"] = fetch_sitemap(src, cutoff)
+                else:
+                    allitems = fetch_feed(src)
+                    st["raw"] = len(allitems)
+                    got = [i for i in allitems if i["date"] >= cutoff]
+                st["window"] = len(got)
                 kw = [re.compile(r"\b%s\b" % re.escape(k), re.I) for k in src.get("keywords", [])]
                 if kw:
                     got = [i for i in got if any(k.search(i["title"] + " " + i["text"]) for k in kw)]
+                st["kept"] = len(got)
                 items += got
             except Exception as e:
-                print(f"Source failed {src['name']}: {e}", file=sys.stderr)
-                notes.append(src["name"])
+                st["error"] = f"{type(e).__name__}: {e}"[:200]
+            if st["error"]:
+                print(f"::warning::Source FAILED {src['name']}: {st['error']}")
+                notes.append({"name": src["name"], "kind": "failed"})
+            elif st["raw"] == 0:
+                print(f"::warning::Source returned 0 raw items: {src['name']} (feed format or URL may have changed)")
+                notes.append({"name": src["name"], "kind": "empty"})
+            print(f"[{sec['id']}] {src['name']}: raw={st['raw']} in_window={st['window']} kept={st['kept']}"
+                  + (f" ERROR={st['error']}" if st["error"] else ""))
+            stats.append(st)
         items.sort(key=lambda i: i["date"], reverse=True)
         picked = []
         for i in items:
@@ -147,6 +175,12 @@ def main():
         for i in picked:
             i["es"], i["en"] = summarize(cfg["model"], i)
         sections.append({"cfg": sec, "items": picked, "failed": notes})
+
+    total = sum(len(s["items"]) for s in sections)
+    write_summary(stats, sections, total)
+    if total == 0:  # never publish an empty edition; fail so the run turns red
+        print("::error::No news items found in any section - edition not published. Check the source table above.")
+        sys.exit(1)
 
     # Edition number: +1 per generated edition
     state_f = ROOT / "archive/state.json"
@@ -168,9 +202,13 @@ def main():
             f'<span class="es">Fuente original</span><span class="en">Original source</span></a></div></article>'
             for i in s["items"]) or ('<p class="empty"><span class="es">Sin novedades esta semana.</span>'
                                      '<span class="en">No news this week.</span></p>')
-        warn = "".join(
-            f'<p class="warn">⚠ <span class="es">Fuente no disponible:</span>'
-            f'<span class="en">Source unavailable:</span> {esc(n)}</p>' for n in s["failed"])
+        def note(n):
+            if n["kind"] == "failed":
+                return ('<p class="warn">⚠ <span class="es">Fuente no disponible:</span>'
+                        f'<span class="en">Source unavailable:</span> {esc(n["name"])}</p>')
+            return ('<p class="warn">⚠ <span class="es">La fuente no devolvió ninguna entrada:</span>'
+                    f'<span class="en">Source returned no entries:</span> {esc(n["name"])}</p>')
+        warn = "".join(note(n) for n in s["failed"])
         body.append(f'<section id="{c["id"]}"><h2><span class="es">{esc(c["name_es"])}</span>'
                     f'<span class="en">{esc(c["name_en"])}</span></h2>{warn}{cards}</section>')
 
