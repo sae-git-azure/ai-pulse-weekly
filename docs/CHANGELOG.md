@@ -7,3 +7,4 @@
 - Fail visibly: run is red if no new edition file is written or the page has 0 items (nothing is published in that case).
 - Per-source counts (raw / last 7 days / after filter) in the log and GITHUB_STEP_SUMMARY; page note for sources that fail or return 0 raw items.
 - Removed tracked __pycache__, added .gitignore.
+- Fallback: sections with no news in the last 7 days show a yellow 'no new news' note plus up to 3 older items (max 60 days), tagged 'older'. Fallback items never count as news for the empty-edition check.
